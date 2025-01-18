@@ -13,12 +13,7 @@ struct Payload {
 };
 
 typedef struct vec4i8 vec4i8;
-struct vec4i8 {
-    i8 x;
-    i8 y;
-    i8 z;
-    i8 w;
-};
+struct vec4i8 { i8 x; i8 y; i8 z; i8 w; };
 
 void Arena_test() {
     Arena arena = {0};
@@ -95,16 +90,8 @@ void Arena_test() {
     }
     arenaPopArray(&arena, vec4i8, npts);
 
-    // printf("Memory Dump: %d bytes allocated.\n", N);
-    // printf("%p: ", store);
-    // for (i32 i = 0; i < N; ++i) {
-    //     if(i % 8 == 0 && i != 0) {
-    //         printf("\n");
-    //         printf("%p: ", &store[i]);
-    //     }
-    //     printf("%02x ", store[i]);
-    // }
-    // arenaClear(&arena);
+    arenaPrint(&arena);
+    arenaClear(&arena);
 }
 
 i32 main(i32 argc, char *argv[]) {

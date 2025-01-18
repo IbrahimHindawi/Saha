@@ -17,13 +17,6 @@ struct Arena {
     u64 npages;
 };
 
-typedef struct hkArray_Node hkArray_Node;
-structdef(Node) {
-    i32 length;
-    // Node *nodes;
-    hkArray_Node *nodes;
-};
-
 void arenaInit(Arena *arena) {
     SYSTEM_INFO systeminfo = {0};
     GetSystemInfo(&systeminfo);
@@ -153,7 +146,7 @@ void arenaPrint(Arena *arena) {
         }
         printf("%02x ", arena->base[i]);
     }
-    printf("Memory Dump: End.\n");
+    printf("\nMemory Dump: End.\n");
 }
 
 #define arenaPushStruct(arena, type) arenaPush(arena, sizeof(type), _Alignof(type))

@@ -1,5 +1,5 @@
-# c-init
-C programming template
+# Saha ساحة 
+Arena Allocator
 # how to run:
 - initalize `cl.exe` using `x64 Native Tools Command Prompt for VS 2019`
 - run `git submodule update --init --recursive`

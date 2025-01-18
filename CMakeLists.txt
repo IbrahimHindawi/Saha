@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(c-init VERSION 1.0 LANGUAGES C)
+project(saha VERSION 1.0 LANGUAGES C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_STANDARD 99)
@@ -10,7 +10,6 @@ include_directories(extern/haikal/src/meta/gen)
 add_executable(${PROJECT_NAME}
     src/main.c
     src/fileops.c
-    src/Component.c
 )
 # add_subdirectory(extern) # in case of modules...
 

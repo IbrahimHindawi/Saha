@@ -1,4 +1,4 @@
-# Saha ساحة 
+# saha ساحة 
 Arena Allocator
 # how to run:
 - initalize `cl.exe` using `x64 Native Tools Command Prompt for VS 2019`

@@ -66,7 +66,7 @@ void *arenaPush(Arena *arena, u64 alloc_size, u64 align) {
     // printf("align = %llu\n", align);
     // printf("offset = %llu\n", offset);
     if (arena->used + alloc_size + diff > arena->pagesize * arena->npages) {
-        i32 npages = ceil((f32)(arena->used + alloc_size + diff) / arena->pagesize);
+        i32 npages = (i32)(ceil((f32)(arena->used + alloc_size + diff) / arena->pagesize));
         arena->npages = npages;
         arena->base = VirtualAlloc(arena->base, arena->pagesize * arena->npages, MEM_COMMIT, PAGE_READWRITE);
         if (!arena->base) { exit(EXIT_FAILURE); }

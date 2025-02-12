@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #define CORE_IMPL
 #include <core.h>
@@ -19,7 +20,7 @@ void Arena_test() {
     Arena arena = {0};
     arenaInit(&arena);
 
-    const i32 len = 4;
+    i32 len = 4;
     f32 *nums = arenaPushArray(&arena, i32, len);
     for (i32 i = 0; i < len; ++i) {
         nums[i] = (f32)(i + 1);
@@ -34,6 +35,14 @@ void Arena_test() {
         printf("%02x ", ptr[i]);
     }
     printf("\n");
+
+    // void *old_ptr = nums;
+    // nums = arenaPushArray(&arena, i32, len * 2);
+    // memcpy(nums, old_ptr, sizeof(i32) * len);
+    nums = arenaRealloc(&arena, i32, 8, nums, 4);
+    for (i32 i = 0; i < 8; ++i) {
+        nums[i] = (f32)(i + 1);
+    }
 
     void *pos = arena.cursor;
 

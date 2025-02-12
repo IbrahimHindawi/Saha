@@ -1,3 +1,4 @@
+#include <string.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -5,29 +6,7 @@
 
 #include <core.h>
 #include <stdalign.h>
-#define maxallocsize 0x10000000000
-
-typedef struct Arena Arena;
-struct Arena {
-    u8 *base;
-    u8 *cursor;
-    u8 *previous;
-    u64 used;
-    u64 pagesize;
-    u64 npages;
-};
-
-void arenaInit(Arena *arena) {
-    SYSTEM_INFO systeminfo = {0};
-    GetSystemInfo(&systeminfo);
-    // printf("allocationgranularity = %lu\n", systeminfo.dwAllocationGranularity);
-    // printf("page size = %lu\n", systeminfo.dwPageSize);
-    arena->pagesize = systeminfo.dwPageSize; // 4096 or 0x1000
-    arena->base = VirtualAlloc(NULL, maxallocsize, MEM_RESERVE, PAGE_NOACCESS); // reserve 1,099,511,627,776 bytes
-    if (!arena->base) { exit(EXIT_FAILURE); }
-    arena->cursor = arena->base;
-    arena->previous = arena->base;
-}
+#define max_alloc_size 0x10000000000
 
 bool isPowerOfTwo(uintptr_t x) {
 	return (x & (x-1)) == 0;
@@ -53,7 +32,29 @@ uintptr_t memoryAlignForward(uintptr_t ptr, size_t align) {
 	return p;
 }
 
-void *arenaPush(Arena *arena, u64 allocsize, u64 align) {
+typedef struct Arena Arena;
+struct Arena {
+    u8 *base;
+    u8 *cursor;
+    u8 *previous;
+    u64 used;
+    u64 pagesize;
+    u64 npages;
+};
+
+void arenaInit(Arena *arena) {
+    SYSTEM_INFO systeminfo = {0};
+    GetSystemInfo(&systeminfo);
+    // printf("allocationgranularity = %lu\n", systeminfo.dwAllocationGranularity);
+    // printf("page size = %lu\n", systeminfo.dwPageSize);
+    arena->pagesize = systeminfo.dwPageSize; // 4096 or 0x1000
+    arena->base = VirtualAlloc(NULL, max_alloc_size, MEM_RESERVE, PAGE_NOACCESS); // reserve 1,099,511,627,776 bytes
+    if (!arena->base) { exit(EXIT_FAILURE); }
+    arena->cursor = arena->base;
+    arena->previous = arena->base;
+}
+
+void *arenaPush(Arena *arena, u64 alloc_size, u64 align) {
 	// Align 'curr_offset' forward to the specified alignment
 	uintptr_t curr_ptr = (uintptr_t)arena->base + (uintptr_t)arena->used;
 	uintptr_t offset = memoryAlignForward(curr_ptr, align);
@@ -63,17 +64,17 @@ void *arenaPush(Arena *arena, u64 allocsize, u64 align) {
     uintptr_t diff = offset - curr_ptr;
     // printf("align = %llu\n", align);
     // printf("offset = %llu\n", offset);
-    if (arena->used + allocsize + diff > arena->pagesize * arena->npages) {
-        i32 npages = ceil((f32)(arena->used + allocsize + diff) / arena->pagesize);
+    if (arena->used + alloc_size + diff > arena->pagesize * arena->npages) {
+        i32 npages = ceil((f32)(arena->used + alloc_size + diff) / arena->pagesize);
         arena->npages = npages;
         arena->base = VirtualAlloc(arena->base, arena->pagesize * arena->npages, MEM_COMMIT, PAGE_READWRITE);
         if (!arena->base) { exit(EXIT_FAILURE); }
     }
-    if (arena->used > maxallocsize) {
+    if (arena->used > max_alloc_size) {
         printf("Memory allocation failure! Maximum memory reached!\n");
         exit(EXIT_FAILURE);
     }
-    arena->used += allocsize + diff;
+    arena->used += alloc_size + diff;
     // save cursor before push
     arena->previous = arena->cursor;
     // align cursor
@@ -81,14 +82,14 @@ void *arenaPush(Arena *arena, u64 allocsize, u64 align) {
     // save aligned cursor
     void *oldpos = arena->cursor;
     // allocate
-    arena->cursor += allocsize;
+    arena->cursor += alloc_size;
     // return aligned cursor
     return oldpos;
 }
 
-void *arenaPushZero(Arena *arena, u64 allocsize, u64 align) {
-    arenaPush(arena, allocsize, align);
-    memcpy(arena->cursor, 0, allocsize);
+void *arenaPushZero(Arena *arena, u64 alloc_size, u64 align) {
+    arenaPush(arena, alloc_size, align);
+    memcpy(arena->cursor, 0, alloc_size);
     return arena->cursor;
 }
 
@@ -99,25 +100,49 @@ void *arenaSetPos(Arena *arena, void *pos) {
     return arena->cursor;
 }
 
-void arenaClear(Arena *arena) {
-    arena->cursor = arena->base;
-    arena->used = 0;
-}
-
-void *arenaPop(Arena *arena, u64 allocsize) {
+void *arenaPop(Arena *arena, u64 alloc_size) {
     // leads to fragmentation, needs solution
     // uintptr_t diff = arena->cursor - arena->previous;
-    // uintptr_t offset = diff - allocsize;
+    // uintptr_t offset = diff - alloc_size;
     // uintptr_t oldprevious = arena->previous;
     // arena->cursor = arena->previous;
-    // arena->cursor -= allocsize + offset;
-    arena->cursor -= allocsize;
-    arena->used -= allocsize;
+    // arena->cursor -= alloc_size + offset;
+    arena->cursor -= alloc_size;
+    arena->used -= alloc_size;
     return arena->cursor;
 }
 
 void *arenaGetPos(Arena *arena) {
     return arena->cursor;
+}
+
+void arenaClear(Arena *arena) {
+    arena->cursor = arena->base;
+    arena->used = 0;
+}
+
+#define arenaRealloc(arena, type, new_count, old_ptr, old_count) \
+    arenaRealloc_(arena, sizeof(type) * new_count, old_ptr, sizeof(type) * old_count, _Alignof(type))
+void *arenaRealloc_(Arena *arena, u64 new_alloc_size, void *old_ptr, u64 old_alloc_size, u64 align) {
+    void *new_ptr = arenaPush(arena, new_alloc_size, align);
+    memcpy(new_ptr, old_ptr, old_alloc_size);
+    memset(old_ptr, 0, old_alloc_size);
+    return new_ptr;
+}
+
+void arenaDestroy(Arena *arena) { }
+
+void arenaPrint(Arena *arena) {
+    printf("Memory Dump: %llu bytes allocated.\n", arena->used);
+    printf("%p: ", arena->base);
+    for (i32 i = 0; i < arena->used; ++i) {
+        if(i % 8 == 0 && i != 0) {
+            printf("\n");
+            printf("%p: ", &arena->base[i]);
+        }
+        printf("%02x ", arena->base[i]);
+    }
+    printf("\nMemory Dump: End.\n");
 }
 
 char *strAlloc(Arena *arena, char *input_str) {
@@ -134,19 +159,6 @@ char *strAlloc(Arena *arena, char *input_str) {
 void *strDealloc(Arena *arena, const char *input_str) {
     u64 input_str_len = strlen(input_str) + 1;
     return arenaPop(arena, input_str_len);
-}
-
-void arenaPrint(Arena *arena) {
-    printf("Memory Dump: %llu bytes allocated.\n", arena->used);
-    printf("%p: ", arena->base);
-    for (i32 i = 0; i < arena->used; ++i) {
-        if(i % 8 == 0 && i != 0) {
-            printf("\n");
-            printf("%p: ", &arena->base[i]);
-        }
-        printf("%02x ", arena->base[i]);
-    }
-    printf("\nMemory Dump: End.\n");
 }
 
 #define arenaPushStruct(arena, type) arenaPush(arena, sizeof(type), _Alignof(type))
